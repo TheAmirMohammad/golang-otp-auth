@@ -28,3 +28,10 @@ func (r *UserRepo) Create(ctx context.Context, u *user.User) error {
 	r.byPhone[u.Phone] = u.ID
 	return nil
 }
+
+func (r *UserRepo) GetByID(ctx context.Context, id string) (*user.User, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	u, ok := r.byID[id]
+	if !ok { return nil, nil }
+	return &u, nil
+}
