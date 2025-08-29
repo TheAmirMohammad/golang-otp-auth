@@ -54,6 +54,12 @@ func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 
 func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
 	var req verifyOTPReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid body"})
+	}
+	if !phoneRx.MatchString(req.Phone) || len(req.OTP) != 6 {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid inputs"})
+	}
 	if !h.OTP.Validate(req.Phone, req.OTP) {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid or expired otp"})
 	}
