@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/uuid v1.6.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 )
 
 require (
