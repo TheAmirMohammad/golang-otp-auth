@@ -22,6 +22,8 @@ type AuthHandler struct {
 	Users     user.Repository
 }
 
+// DTOs (exported for Swagger)
+
 type verifyOTPReq struct {
 	Phone string `json:"phone"`
 	OTP   string `json:"otp"`
