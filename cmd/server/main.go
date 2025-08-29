@@ -25,9 +25,10 @@ func main() {
 		OTP: otpMgr, Limiter: limiter, Users: repo,
 		JWTSecret: cfg.JWTSecret, TokenTTL: 24 * time.Hour,
 	}
+	uh := &handlers.UserHandler{Users: repo}
 
 	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("OK") })
-	httpapi.New(app, ah) //router
+	httpapi.New(app, ah, uh) //router
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil { log.Fatal(err) }
