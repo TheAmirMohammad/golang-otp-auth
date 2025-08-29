@@ -50,6 +50,7 @@ func (m *Manager) Generate(phone string) (string, error) {
 	if err != nil { return "", err }
 	m.mu.Lock()
 	m.store[phone] = record{Code: code, ExpiresAt: time.Now().Add(m.ttl)}
+	m.mu.Unlock()
 	log.Printf("[OTP] %s -> %s (expires in %s)", phone, code, m.ttl)
 	return code, nil
 }
