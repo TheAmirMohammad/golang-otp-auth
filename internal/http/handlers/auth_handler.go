@@ -1,13 +1,17 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 	"time"
 
-	"github.com/TheAmirMohammad/otp-service/internal/domain/user"
-	"github.com/TheAmirMohammad/otp-service/internal/otp"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+
+	"github.com/TheAmirMohammad/otp-service/internal/domain/user"
+	jwtutil "github.com/TheAmirMohammad/otp-service/internal/jwt"
+	"github.com/TheAmirMohammad/otp-service/internal/otp"
 )
 
 type AuthHandler struct {
@@ -46,4 +50,15 @@ func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"otp error"})
 	}
 	return c.JSON(fiber.Map{"message":"otp generated (check server logs)"})
+}
+
+func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
+	var req verifyOTPReq
+	if !h.OTP.Validate(req.Phone, req.OTP) {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid or expired otp"})
+	}
+	ctx := context.Background()
+	u, _ := h.Users.GetByPhone(ctx, req.Phone)
+	tok, _ := jwtutil.Generate(h.JWTSecret, u.ID, h.TokenTTL)
+	return c.JSON(authResp{Token: tok, User: *u})
 }
