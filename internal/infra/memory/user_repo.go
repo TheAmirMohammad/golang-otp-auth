@@ -35,3 +35,11 @@ func (r *UserRepo) GetByID(ctx context.Context, id string) (*user.User, error) {
 	if !ok { return nil, nil }
 	return &u, nil
 }
+
+func (r *UserRepo) GetByPhone(ctx context.Context, phone string) (*user.User, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	id, ok := r.byPhone[phone]
+	if !ok { return nil, nil }
+	u := r.byID[id]
+	return &u, nil
+}
