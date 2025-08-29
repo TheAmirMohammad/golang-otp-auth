@@ -29,6 +29,8 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	size, _ := strconv.Atoi(c.Query("size", "20"))
+	if page < 1 { page = 1 }
+	if size < 1 || size > 100 { size = 20 }
 	search := c.Query("search", "")
 	items, total, err := h.Users.List(context.Background(), user.ListFilter{
 		Search: search, Limit: size, Offset: (page-1)*size,
