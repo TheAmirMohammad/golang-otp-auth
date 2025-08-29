@@ -9,4 +9,5 @@ import (
 func New(app *fiber.App, ah *handlers.AuthHandler) {
 	api := app.Group("/api/v1")
 	api.Post("/auth/request-otp", ah.RequestOTP)
+	api.Post("/auth/verify-otp", ah.VerifyOTP)
 }
