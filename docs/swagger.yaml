@@ -1,0 +1,13 @@
+basePath: /api/v1
+info:
+  contact: {}
+  description: OTP-based login/registration with user management.
+  title: OTP Service API
+  version: "1.0"
+paths: {}
+securityDefinitions:
+  Bearer:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

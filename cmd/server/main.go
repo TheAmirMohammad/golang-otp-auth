@@ -7,8 +7,16 @@ import (
 
 	"github.com/TheAmirMohammad/otp-service/internal/config"
 	httpapi "github.com/TheAmirMohammad/otp-service/internal/http"
+	_ "github.com/TheAmirMohammad/otp-service/docs" // swagger docs
 )
 
+// @title           OTP Service API
+// @version         1.0
+// @description     OTP-based login/registration with user management.
+// @BasePath        /api/v1
+// @securityDefinitions.apikey Bearer
+// @in              header
+// @name            Authorization
 func main() {
 	cfg := config.Load()
 	app := fiber.New()
