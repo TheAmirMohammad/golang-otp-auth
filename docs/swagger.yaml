@@ -1,0 +1,178 @@
+basePath: /api/v1
+definitions:
+  handlers.AuthResp:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/user.User'
+    type: object
+  handlers.RequestOTPReq:
+    properties:
+      phone:
+        type: string
+    type: object
+  handlers.VerifyOTPReq:
+    properties:
+      otp:
+        type: string
+      phone:
+        type: string
+    type: object
+  handlers.listResp:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/user.User'
+        type: array
+      page:
+        type: integer
+      size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  user.User:
+    properties:
+      id:
+        type: string
+      phone:
+        type: string
+      registered_at:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: OTP-based login/registration with user management.
+  title: OTP Service API
+  version: "1.0"
+paths:
+  /auth/request-otp:
+    post:
+      consumes:
+      - application/json
+      description: 'Generates an OTP (printed in server logs). Rate limit: 3 per 10
+        minutes per phone. Expires in 2 minutes.'
+      parameters:
+      - description: Phone payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RequestOTPReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Request OTP
+      tags:
+      - auth
+  /auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Validates OTP; creates user if not exists; returns JWT.
+      parameters:
+      - description: Verify payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.VerifyOTPReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AuthResp'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Verify OTP (login/register)
+      tags:
+      - auth
+  /users:
+    get:
+      parameters:
+      - default: 1
+        description: Page (1-based)
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: size
+        type: integer
+      - description: Search by phone
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.listResp'
+      security:
+      - Bearer: []
+      summary: List users with pagination & search
+      tags:
+      - users
+  /users/{id}:
+    get:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Get single user by ID
+      tags:
+      - users
+securityDefinitions:
+  Bearer:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
