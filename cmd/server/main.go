@@ -33,6 +33,7 @@ func main() {
 		OTP: otpMgr, Limiter: limiter, Users: repo,
 		JWTSecret: cfg.JWTSecret, TokenTTL: 24 * time.Hour,
 	}
+
 	uh := &handlers.UserHandler{Users: repo}
 
 	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("OK") })

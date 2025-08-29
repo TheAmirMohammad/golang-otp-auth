@@ -22,6 +22,8 @@ type AuthHandler struct {
 	Users     user.Repository
 }
 
+// DTOs (exported for Swagger)
+
 type verifyOTPReq struct {
 	Phone string `json:"phone"`
 	OTP   string `json:"otp"`
@@ -35,6 +37,17 @@ type requestOTPReq struct { Phone string `json:"phone"` }
 
 var phoneRx = regexp.MustCompile(`^[0-9+\-() ]{5,20}$`) // For Iran numbers it should be "^09\d{9}$"
 
+// RequestOTP godoc
+// @Summary      Request OTP
+// @Description  Generates an OTP (printed in server logs). Rate limit: 3 per 10 minutes per phone. Expires in 2 minutes.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        payload body RequestOTPReq true "Phone payload"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Failure      429 {object} map[string]string
+// @Router       /auth/request-otp [post]
 func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 	var req requestOTPReq
 	if err := c.BodyParser(&req); err != nil {
@@ -52,6 +65,16 @@ func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message":"otp generated (check server logs)"})
 }
 
+// VerifyOTP godoc
+// @Summary      Verify OTP (login/register)
+// @Description  Validates OTP; creates user if not exists; returns JWT.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        payload body VerifyOTPReq true "Verify payload"
+// @Success      200 {object} AuthResp
+// @Failure      400 {object} map[string]string
+// @Router       /auth/verify-otp [post]
 func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
 	var req verifyOTPReq
 	if err := c.BodyParser(&req); err != nil {
