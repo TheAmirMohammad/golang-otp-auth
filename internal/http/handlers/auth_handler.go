@@ -24,16 +24,16 @@ type AuthHandler struct {
 
 // DTOs (exported for Swagger)
 
-type verifyOTPReq struct {
+type VerifyOTPReq struct {
 	Phone string `json:"phone"`
 	OTP   string `json:"otp"`
 }
-type authResp struct {
+type AuthResp struct {
 	Token string    `json:"token"`
 	User  user.User `json:"user"`
 }
 
-type requestOTPReq struct { Phone string `json:"phone"` }
+type RequestOTPReq struct { Phone string `json:"phone"` }
 
 var phoneRx = regexp.MustCompile(`^[0-9+\-() ]{5,20}$`) // For Iran numbers it should be "^09\d{9}$"
 
@@ -49,7 +49,7 @@ var phoneRx = regexp.MustCompile(`^[0-9+\-() ]{5,20}$`) // For Iran numbers it s
 // @Failure      429 {object} map[string]string
 // @Router       /auth/request-otp [post]
 func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
-	var req requestOTPReq
+	var req RequestOTPReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid body"})
 	}
@@ -76,7 +76,7 @@ func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 // @Failure      400 {object} map[string]string
 // @Router       /auth/verify-otp [post]
 func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
-	var req verifyOTPReq
+	var req VerifyOTPReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid body"})
 	}
@@ -96,5 +96,5 @@ func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
 	}
 	tok, err := jwtutil.Generate(h.JWTSecret, u.ID, h.TokenTTL)
 	if err != nil { return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"token error"}) }
-	return c.JSON(authResp{Token: tok, User: *u})
+	return c.JSON(AuthResp{Token: tok, User: *u})
 }
