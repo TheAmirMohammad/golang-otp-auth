@@ -54,3 +54,13 @@ func (m *Manager) Generate(phone string) (string, error) {
 	log.Printf("[OTP] %s -> %s (expires in %s)", phone, code, m.ttl)
 	return code, nil
 }
+
+func (m *Manager) Validate(phone, code string) bool {
+	m.mu.RLock()
+	rec, ok := m.store[phone]
+	m.mu.RUnlock()
+	if !ok || time.Now().After(rec.ExpiresAt) { return false }
+	if rec.Code != code { return false }
+	m.mu.Lock(); delete(m.store, phone); m.mu.Unlock()
+	return true
+}
