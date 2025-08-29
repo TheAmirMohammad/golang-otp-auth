@@ -13,6 +13,11 @@ import (
 
 func New(app *fiber.App, ah *handlers.AuthHandler, uh *handlers.UserHandler) {
 	api := app.Group("/api/v1")
+
+	//Auth endpoints
+	api.Post("/auth/request-otp", ah.RequestOTP)
+	api.Post("/auth/verify-otp", ah.VerifyOTP)
+	
 	protected := api.Group("", func(c *fiber.Ctx) error {
 		h := c.Get("Authorization")
 		if !strings.HasPrefix(strings.ToLower(h), "bearer ") {
@@ -27,10 +32,6 @@ func New(app *fiber.App, ah *handlers.AuthHandler, uh *handlers.UserHandler) {
 		}
 		return c.Next()
 	})
-
-	//Auth endpoints
-	api.Post("/auth/request-otp", ah.RequestOTP)
-	api.Post("/auth/verify-otp", ah.VerifyOTP)
 
 	//User endpoints
 	protected.Get("/users/:id", uh.GetUser)
