@@ -3,7 +3,9 @@ package handlers
 import (
 	"net/http"
 	"regexp"
+	"time"
 
+	"github.com/TheAmirMohammad/otp-service/internal/domain/user"
 	"github.com/TheAmirMohammad/otp-service/internal/otp"
 	"github.com/gofiber/fiber/v2"
 )
@@ -11,6 +13,18 @@ import (
 type AuthHandler struct {
 	OTP      *otp.Manager
 	Limiter  *otp.Limiter
+	JWTSecret string
+	TokenTTL  time.Duration
+	Users     user.Repository
+}
+
+type verifyOTPReq struct {
+	Phone string `json:"phone"`
+	OTP   string `json:"otp"`
+}
+type authResp struct {
+	Token string    `json:"token"`
+	User  user.User `json:"user"`
 }
 
 type requestOTPReq struct { Phone string `json:"phone"` }
