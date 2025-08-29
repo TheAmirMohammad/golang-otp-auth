@@ -4,11 +4,14 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+
+	"github.com/TheAmirMohammad/otp-service/internal/config"
 )
 
 func main() {
+	cfg := config.Load()
 	app := fiber.New()
 	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("OK") })
-	log.Println("listening on :8080")
-	if err := app.Listen(":8080"); err != nil { log.Fatal(err) }
+	log.Printf("listening on :%s", cfg.Port)
+	if err := app.Listen(":" + cfg.Port); err != nil { log.Fatal(err) }
 }
