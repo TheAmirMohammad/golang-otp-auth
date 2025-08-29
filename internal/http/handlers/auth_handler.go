@@ -59,6 +59,13 @@ func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
 	}
 	ctx := context.Background()
 	u, _ := h.Users.GetByPhone(ctx, req.Phone)
-	tok, _ := jwtutil.Generate(h.JWTSecret, u.ID, h.TokenTTL)
+	if u == nil {
+		u = &user.User{ID: uuid.NewString(), Phone: req.Phone, RegisteredAt: time.Now().UTC()}
+		if err := h.Users.Create(ctx, u); err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"create user failed"})
+		}
+	}
+	tok, err := jwtutil.Generate(h.JWTSecret, u.ID, h.TokenTTL)
+	if err != nil { return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"token error"}) }
 	return c.JSON(authResp{Token: tok, User: *u})
 }
