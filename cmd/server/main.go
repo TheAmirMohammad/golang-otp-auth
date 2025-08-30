@@ -33,31 +33,43 @@ func main() {
 	cfg := config.Load()
 	ctx := context.Background()
 
-	// --- Users repo: Postgres if DATABASE_URL set, otherwise in-memory
+	// --- Users repo: try Postgres; fall back to memory on ANY error
 	var usersRepo user.Repository
 	if strings.TrimSpace(cfg.DatabaseURL) != "" {
-		db := postgres.MustConnect(ctx, cfg.DatabaseURL)
-		postgres.MustMigrate(ctx, db)
-		usersRepo = postgres.NewUserRepo(db)
-		log.Println("users repo: postgres")
+		if db, err := postgres.Connect(ctx, cfg.DatabaseURL); err != nil {
+			log.Printf("warning: postgres unavailable (%v) – using in-memory users repo", err)
+			usersRepo = memory.NewUserRepo()
+		} else if err := postgres.Migrate(ctx, db); err != nil {
+			log.Printf("warning: migration failed (%v) – using in-memory users repo", err)
+			usersRepo = memory.NewUserRepo()
+		} else {
+			usersRepo = postgres.NewUserRepo(db)
+			log.Println("users repo: postgres")
+		}
 	} else {
 		usersRepo = memory.NewUserRepo()
-		log.Println("users repo: in-memory")
+		log.Println("users repo: in-memory (DATABASE_URL empty or USE_DB=false)")
 	}
 
-	// --- OTP & Rate: Redis if REDIS_URL set, otherwise in-memory
+	// --- OTP & Rate: Redis if REDIS_URL set; otherwise in-memory
 	var otpSvc otp.Service
 	var limiter otp.Limiter
 
-	if cfg.RedisURL != "" {
+	if strings.TrimSpace(cfg.RedisURL) != "" {
 		rdb := redis.NewClient(mustParseRedisURL(cfg.RedisURL))
-		otpSvc = red.NewManager(rdb, 2*time.Minute)
-		limiter = red.NewLimiter(rdb, 3, 10*time.Minute)
-		log.Println("otp: redis")
+		if err := rdb.Ping(ctx).Err(); err != nil {
+			log.Printf("warning: redis unavailable (%v) – using in-memory OTP & rate", err)
+			otpSvc = mem.NewManager(2 * time.Minute)
+			limiter = mem.NewLimiter(3, 10*time.Minute)
+		} else {
+			otpSvc = red.NewManager(rdb, 2*time.Minute)
+			limiter = red.NewLimiter(rdb, 3, 10*time.Minute)
+			log.Println("otp/rate: redis")
+		}
 	} else {
 		otpSvc = mem.NewManager(2 * time.Minute)
 		limiter = mem.NewLimiter(3, 10*time.Minute)
-		log.Println("otp: in-memory")
+		log.Println("otp/rate: in-memory (REDIS_URL empty or USE_REDIS=false)")
 	}
 
 	// Handlers
@@ -71,6 +83,7 @@ func main() {
 	uh := &handlers.UserHandler{Users: usersRepo}
 
 	app := fiber.New()
+	// Simple health check
 	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("OK") })
 	httpapi.New(app, ah, uh)
 
@@ -82,7 +95,6 @@ func main() {
 
 // mustParseRedisURL accepts either "host:port" or "redis://[:pass@]host:port[/db]"
 func mustParseRedisURL(raw string) *redis.Options {
-	// plain host:port
 	if !strings.Contains(raw, "://") {
 		return &redis.Options{Addr: raw}
 	}
