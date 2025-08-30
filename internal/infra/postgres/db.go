@@ -2,32 +2,34 @@ package postgres
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func MustConnect(ctx context.Context, dsn string) *pgxpool.Pool {
+// Non-fatal connect: returns error instead of exiting
+func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		log.Fatalf("parse db dsn: %v", err)
+		return nil, fmt.Errorf("parse db dsn: %w", err)
 	}
 	db, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		log.Fatalf("connect db: %v", err)
+		return nil, fmt.Errorf("connect db: %w", err)
 	}
-	return db
+	return db, nil
 }
 
-func MustMigrate(ctx context.Context, db *pgxpool.Pool) {
+// Non-fatal migrate: returns error instead of exiting
+func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 	const q = `
-	CREATE TABLE IF NOT EXISTS users (
-  	id TEXT PRIMARY KEY,
- 	phone TEXT NOT NULL UNIQUE,
-	registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-	);
-	`
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  phone TEXT NOT NULL UNIQUE,
+  registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);`
 	if _, err := db.Exec(ctx, q); err != nil {
-		log.Fatalf("migrate: %v", err)
+		return fmt.Errorf("migrate: %w", err)
 	}
+	return nil
 }
