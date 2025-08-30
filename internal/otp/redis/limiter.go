@@ -1,4 +1,4 @@
-package otp
+package redisotp
 
 import (
 	"context"
@@ -6,35 +6,28 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	
+	"github.com/TheAmirMohammad/otp-service/internal/otp"
 )
 
-type RedisLimiter struct {
-	RDB    *redis.Client
-	Limit  int
-	Window time.Duration
+type limiter struct {
+	rdb    *redis.Client
+	limit  int
+	window time.Duration
 }
 
-func NewRedisLimiter(rdb *redis.Client, limit int, window time.Duration) *RedisLimiter {
-	return &RedisLimiter{RDB: rdb, Limit: limit, Window: window}
+func NewLimiter(rdb *redis.Client, limit int, window time.Duration) otp.Limiter {
+	return &limiter{rdb: rdb, limit: limit, window: window}
 }
 
-// Fixed-window counter: INCR key, set TTL on first hit, allow if <= Limit.
-func (l *RedisLimiter) Allow(phone string) bool {
-	ctx := context.Background()
-	key := l.key(phone, time.Now(), l.Window)
-
-	pipe := l.RDB.TxPipeline()
-	incr := pipe.Incr(ctx, key)
-	pipe.Expire(ctx, key, l.Window)
-	_, err := pipe.Exec(ctx)
+func (l *limiter) Allow(ctx context.Context, phone string) (bool, error) {
+	key := fmt.Sprintf("rl:otp:%s", phone)
+	n, err := l.rdb.Incr(ctx, key).Result()
 	if err != nil {
-		return false // fail-closed or choose to allow on redis error
+		return false, err
 	}
-	return incr.Val() <= int64(l.Limit)
-}
-
-func (l *RedisLimiter) key(phone string, now time.Time, window time.Duration) string {
-	// window bucket start (fixed window)
-	bucket := now.Unix() / int64(window.Seconds())
-	return fmt.Sprintf("otp:rl:%s:%d", phone, bucket)
+	if n == 1 {
+		_ = l.rdb.Expire(ctx, key, l.window).Err()
+	}
+	return n <= int64(l.limit), nil
 }
