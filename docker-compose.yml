@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: otp_db
+    hostname: ${POSTGRES_DNS:-db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-otp} -d ${POSTGRES_DB:-otp}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7.2
+    container_name: otp_redis
+    hostname: ${REDIS_DNS:-redis}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    env_file:
+      - .env
+
+  api:
+    build: .
+    container_name: otp_api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - .env
