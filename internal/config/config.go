@@ -2,9 +2,12 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -32,12 +35,17 @@ type Config struct {
 }
 
 func Load() Config {
+	// Try to load .env; warn (don’t crash) if not found
+	if err := godotenv.Load(); err != nil {
+		log.Printf("warning: .env not found or unreadable (%v) – continuing with process env", err)
+	}
+
 	cfg := Config{
 		Port:      env("PORT", "8080"),
 		JWTSecret: env("JWT_SECRET", "golangotpauthentication"),
 
-		UseDB:    envBool("USE_DB", true),    // default true if you typically run with DB
-		UseRedis: envBool("USE_REDIS", true), // default true if you typically run with Redis
+		UseDB:    envBool("USE_DB", true),
+		UseRedis: envBool("USE_REDIS", true),
 
 		DatabaseURL: strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		RedisURL:    strings.TrimSpace(os.Getenv("REDIS_URL")),
@@ -53,7 +61,7 @@ func Load() Config {
 		RedisDB:   envInt("REDIS_DB", 0),
 	}
 
-	// If toggles are off, force in-memory by blanking URLs
+	// Toggles force in-memory by blanking URLs
 	if !cfg.UseDB {
 		cfg.DatabaseURL = ""
 	}
@@ -61,7 +69,7 @@ func Load() Config {
 		cfg.RedisURL = ""
 	}
 
-	// If toggles are on, and URLs are empty, build from pieces
+	// Build URLs from pieces if toggled on but URL empty
 	if cfg.UseDB && cfg.DatabaseURL == "" {
 		cfg.DatabaseURL = fmt.Sprintf(
 			"postgres://%s:%s@%s:%d/%s?sslmode=disable",
@@ -70,10 +78,7 @@ func Load() Config {
 		)
 	}
 	if cfg.UseRedis && cfg.RedisURL == "" {
-		cfg.RedisURL = fmt.Sprintf(
-			"redis://%s:%d/%d",
-			cfg.RedisHost, cfg.RedisPort, cfg.RedisDB,
-		)
+		cfg.RedisURL = fmt.Sprintf("redis://%s:%d/%d", cfg.RedisHost, cfg.RedisPort, cfg.RedisDB)
 	}
 
 	return cfg
@@ -107,7 +112,7 @@ func envBool(k string, d bool) bool {
 	return d
 }
 
-// Basic percent-escape for user/pass/db segments (not strict RFC but fine here)
+// Minimal percent-escape for URL segments
 func urlEscape(s string) string {
 	r := strings.NewReplacer(" ", "%20", "#", "%23", "@", "%40", ":", "%3A", "/", "%2F", "?", "%3F", "&", "%26", "=", "%3D")
 	return r.Replace(s)
