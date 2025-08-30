@@ -1,66 +1,61 @@
-package otp
+package memoryotp
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/TheAmirMohammad/otp-service/internal/otp"
 )
 
+type manager struct {
+	mu  sync.RWMutex
+	ttl time.Duration
+	m   map[string]record
+}
 
 type record struct {
 	Code      string
 	ExpiresAt time.Time
 }
 
-type Manager struct {
-	mu    sync.RWMutex
-	store map[string]record
-	ttl   time.Duration
+func NewManager(ttl time.Duration) otp.Service {
+	return &manager{ttl: ttl, m: make(map[string]record)}
 }
 
-func NewManager(ttl time.Duration) *Manager {
-	m := &Manager{store: map[string]record{}, ttl: ttl}
-	// best-effort cleanup
-	go func() {
-		t := time.NewTicker(time.Minute)
-		for range t.C { m.cleanup() }
-	}()
-	return m
-}
-
-func (m *Manager) cleanup() {
-	now := time.Now()
-	m.mu.Lock(); defer m.mu.Unlock()
-	for k, v := range m.store {
-		if now.After(v.ExpiresAt) { delete(m.store, k) }
+func (m *manager) Generate(_ context.Context, phone string) (string, error) {
+	code, err := genCode()
+	if err != nil {
+		return "", err
 	}
+	m.mu.Lock()
+	m.m[phone] = record{Code: code, ExpiresAt: time.Now().Add(m.ttl)}
+	m.mu.Unlock()
+	log.Printf("[OTP] phone=%s code=%s (expires in %s)", phone, code, m.ttl)
+	return code, nil
+}
+
+func (m *manager) Validate(_ context.Context, phone, code string) (bool, error) {
+	m.mu.RLock()
+	rec, ok := m.m[phone]
+	m.mu.RUnlock()
+	if !ok || time.Now().After(rec.ExpiresAt) || rec.Code != code {
+		return false, nil
+	}
+	m.mu.Lock()
+	delete(m.m, phone) // one-time use
+	m.mu.Unlock()
+	return true, nil
 }
 
 func genCode() (string, error) {
 	var b [3]byte
-	if _, err := rand.Read(b[:]); err != nil { return "", err }
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
 	n := (int(b[0])<<16 | int(b[1])<<8 | int(b[2])) % 1000000
 	return fmt.Sprintf("%06d", n), nil
-}
-
-func (m *Manager) Generate(phone string) (string, error) {
-	code, err := genCode()
-	if err != nil { return "", err }
-	m.mu.Lock()
-	m.store[phone] = record{Code: code, ExpiresAt: time.Now().Add(m.ttl)}
-	m.mu.Unlock()
-	log.Printf("[OTP] %s -> %s (expires in %s)", phone, code, m.ttl)
-	return code, nil
-}
-
-func (m *Manager) Validate(phone, code string) bool {
-	m.mu.RLock()
-	rec, ok := m.store[phone]
-	m.mu.RUnlock()
-	if !ok || time.Now().After(rec.ExpiresAt) { return false }
-	if rec.Code != code { return false }
-	m.mu.Lock(); delete(m.store, phone); m.mu.Unlock()
-	return true
 }
