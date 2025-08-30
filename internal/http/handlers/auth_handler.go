@@ -11,12 +11,12 @@ import (
 
 	"github.com/TheAmirMohammad/otp-service/internal/domain/user"
 	jwtutil "github.com/TheAmirMohammad/otp-service/internal/jwt"
-	otp "github.com/TheAmirMohammad/otp-service/internal/otp/memory"
+	"github.com/TheAmirMohammad/otp-service/internal/otp"
 )
 
 type AuthHandler struct {
-	OTP      *otp.Manager
-	Limiter  *otp.Limiter
+	OTP       otp.Service
+	Limiter   otp.Limiter
 	JWTSecret string
 	TokenTTL  time.Duration
 	Users     user.Repository
@@ -33,9 +33,11 @@ type AuthResp struct {
 	User  user.User `json:"user"`
 }
 
-type RequestOTPReq struct { Phone string `json:"phone"` }
+type RequestOTPReq struct {
+	Phone string `json:"phone"`
+}
 
-var phoneRx = regexp.MustCompile(`^[0-9+\-() ]{5,20}$`) // For Iran numbers it should be "^09\d{9}$"
+var phoneRx = regexp.MustCompile(`^[0-9+\-() ]{5,20}$`) // For Iran numbers it should be "^09\\d{9}$"
 
 // RequestOTP godoc
 // @Summary      Request OTP
@@ -51,18 +53,24 @@ var phoneRx = regexp.MustCompile(`^[0-9+\-() ]{5,20}$`) // For Iran numbers it s
 func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 	var req RequestOTPReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 	}
 	if !phoneRx.MatchString(req.Phone) {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid phone"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid phone"})
 	}
-	if !h.Limiter.Allow(req.Phone) {
-		return c.Status(http.StatusTooManyRequests).JSON(fiber.Map{"error":"rate limit: 3 per 10 minutes"})
+
+	ok, err := h.Limiter.Allow(c.Context(), req.Phone)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "rate limit error"})
 	}
-	if _, err := h.OTP.Generate(req.Phone); err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"otp error"})
+	if !ok {
+		return c.Status(http.StatusTooManyRequests).JSON(fiber.Map{"error": "rate limit: 3 per 10 minutes"})
 	}
-	return c.JSON(fiber.Map{"message":"otp generated (check server logs)"})
+
+	if _, err := h.OTP.Generate(c.Context(), req.Phone); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "otp error"})
+	}
+	return c.JSON(fiber.Map{"message": "otp generated (check server logs)"})
 }
 
 // VerifyOTP godoc
@@ -78,23 +86,32 @@ func (h *AuthHandler) RequestOTP(c *fiber.Ctx) error {
 func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
 	var req VerifyOTPReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 	}
 	if !phoneRx.MatchString(req.Phone) || len(req.OTP) != 6 {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid inputs"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid inputs"})
 	}
-	if !h.OTP.Validate(req.Phone, req.OTP) {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error":"invalid or expired otp"})
+
+	ok, err := h.OTP.Validate(c.Context(), req.Phone, req.OTP)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "otp validation error"})
 	}
+	if !ok {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid or expired otp"})
+	}
+
 	ctx := context.Background()
 	u, _ := h.Users.GetByPhone(ctx, req.Phone)
 	if u == nil {
 		u = &user.User{ID: uuid.NewString(), Phone: req.Phone, RegisteredAt: time.Now().UTC()}
 		if err := h.Users.Create(ctx, u); err != nil {
-			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"create user failed"})
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "create user failed"})
 		}
 	}
+
 	tok, err := jwtutil.Generate(h.JWTSecret, u.ID, h.TokenTTL)
-	if err != nil { return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error":"token error"}) }
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "token error"})
+	}
 	return c.JSON(AuthResp{Token: tok, User: *u})
 }
