@@ -11,7 +11,7 @@ import (
 
 	"github.com/TheAmirMohammad/otp-service/internal/domain/user"
 	jwtutil "github.com/TheAmirMohammad/otp-service/internal/jwt"
-	"github.com/TheAmirMohammad/otp-service/internal/otp"
+	otp "github.com/TheAmirMohammad/otp-service/internal/otp/memory"
 )
 
 type AuthHandler struct {

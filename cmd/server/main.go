@@ -10,7 +10,7 @@ import (
 	httpapi "github.com/TheAmirMohammad/otp-service/internal/http"
 	"github.com/TheAmirMohammad/otp-service/internal/http/handlers"
 	"github.com/TheAmirMohammad/otp-service/internal/infra/memory"
-	"github.com/TheAmirMohammad/otp-service/internal/otp"
+	otp "github.com/TheAmirMohammad/otp-service/internal/otp/memory"
 	_ "github.com/TheAmirMohammad/otp-service/docs" // swagger docs
 )
 
