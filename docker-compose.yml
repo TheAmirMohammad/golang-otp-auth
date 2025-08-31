@@ -7,6 +7,8 @@ services:
     hostname: ${POSTGRES_DNS:-db}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-otp} -d ${POSTGRES_DB:-otp}"]
       interval: 5s
@@ -22,6 +24,8 @@ services:
     ports:
       - "${REDIS_PORT:-6379}:6379"
     command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -42,3 +46,7 @@ services:
       - "${PORT:-8080}:8080"
     env_file:
       - .env
+
+volumes:
+  pgdata:
+  redisdata:
