@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
@@ -59,16 +58,16 @@ func main() {
 		rdb := redis.NewClient(mustParseRedisURL(cfg.RedisURL))
 		if err := rdb.Ping(ctx).Err(); err != nil {
 			log.Printf("warning: redis unavailable (%v) – using in-memory OTP & rate", err)
-			otpSvc = mem.NewManager(2 * time.Minute)
-			limiter = mem.NewLimiter(3, 10*time.Minute)
+			otpSvc = mem.NewManager(cfg.OTPTTL)
+			limiter = mem.NewLimiter(cfg.RateLimitMax, cfg.RateLimitWindow)
 		} else {
-			otpSvc = red.NewManager(rdb, 2*time.Minute)
-			limiter = red.NewLimiter(rdb, 3, 10*time.Minute)
+			otpSvc = red.NewManager(rdb, cfg.OTPTTL)
+			limiter = red.NewLimiter(rdb, cfg.RateLimitMax, cfg.RateLimitWindow)
 			log.Println("otp/rate: redis")
 		}
 	} else {
-		otpSvc = mem.NewManager(2 * time.Minute)
-		limiter = mem.NewLimiter(3, 10*time.Minute)
+		otpSvc = mem.NewManager(cfg.OTPTTL)
+		limiter = mem.NewLimiter(cfg.RateLimitMax, cfg.RateLimitWindow)
 		log.Println("otp/rate: in-memory (REDIS_URL empty or USE_REDIS=false)")
 	}
 
@@ -78,7 +77,7 @@ func main() {
 		OTP:       otpSvc,
 		Limiter:   limiter,
 		JWTSecret: cfg.JWTSecret,
-		TokenTTL:  24 * time.Hour,
+		TokenTTL:  cfg.TokenTTL,
 	}
 	uh := &handlers.UserHandler{Users: usersRepo}
 
@@ -86,6 +85,8 @@ func main() {
 	// Simple health check
 	app.Get("/health", func(c *fiber.Ctx) error { return c.SendString("OK") })
 	httpapi.New(app, ah, uh)
+
+	log.Printf("otp ttl: %v - otp limit: %d per %v - token ttl: %v", cfg.OTPTTL, cfg.RateLimitMax, cfg.RateLimitWindow, cfg.TokenTTL)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {
