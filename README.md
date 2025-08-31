@@ -55,31 +55,43 @@ All configuration is centralized in **one `.env` file**. Example:
 ```env
 # ---- API ----
 PORT=8080
-JWT_SECRET=golangotpauthentication
+JWT_SECRET=
 
 # ---- Toggles ----
 USE_DB=true
 USE_REDIS=true
 
 # ---- Postgres ----
-POSTGRES_USER=otp
-POSTGRES_PASSWORD=otp
-POSTGRES_DB=otp
 POSTGRES_PORT=5432
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_DB=
 POSTGRES_DNS=db
 DATABASE_URL=
 
 # ---- Redis ----
 REDIS_PORT=6379
-REDIS_DB=0
+REDIS_DB=
 REDIS_DNS=redis
 REDIS_URL=
-```
 
-- If `USE_DB=false` → in-memory user repository.  
-- If `USE_REDIS=false` → in-memory OTP/rate limiter.  
+# ---- Tunables ----
+# Durations use Go format (e.g., 30s, 2m, 1h, 24h)
+OTP_TTL=2m
+RATE_LIMIT_MAX=3
+RATE_LIMIT_WINDOW=10m
+TOKEN_TTL=24h
+```
+- If `.env` is missing → warning is logged, defaults are used.
+- `PORT`: application running port.
+- `JWT_SECRET`: the `jwt` secret (sould be set in production).
+- If `USE_DB=false` → in-memory user repository. If `true` you should fill in `postgres` data!
+- If `USE_REDIS=false` → in-memory OTP/rate limiter. If `true` you should fill in `redis` data!
 - If `DATABASE_URL`/`REDIS_URL` are empty but toggles true → URLs are auto-built from base vars.  
-- If `.env` is missing → warning is logged, defaults are used.  
+- `OTP_TTL`: how long an OTP is valid.
+- `RATE_LIMIT_MAX`: how many OTP requests a phone number can make per window.
+- `RATE_LIMIT_WINDOW`: sliding window for rate limiting.
+- `TOKEN_TTL`: how long JWT tokens remain valid.
 
 ---
 
