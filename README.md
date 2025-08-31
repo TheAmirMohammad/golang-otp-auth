@@ -91,7 +91,9 @@ You can run the service locally with Go, or inside Docker Compose.
 ```bash
 make run
 ```
-Runs the server directly with `go run ./cmd/server`.
+Runs the server directly with `go run ./cmd/server`
+
+**Note: if you dont run the databases localy and set in `.env` file, then program uses in-memory databses by default!
 
 ---
 
@@ -134,9 +136,15 @@ make up-no-build
 ```
 Or just run `docker compose up -d`
 
-#### Stop and clean everything
+#### Stop containers (keep database data)
 ```bash
 make down
+```
+Or just run `docker compose down --remove-orphans`
+
+#### Stop containers and remove all volumes (fresh DB/Redis)
+```bash
+make down-clean
 ```
 Or just run `docker compose down -v --remove-orphans`
 
@@ -179,35 +187,31 @@ curl -H "Authorization: Bearer <TOKEN>"   http://localhost:8080/api/v1/users?pag
   ```bash
   make swag
   ```
-  Or just run `docker compose up --build`
+  Or just run `go install github.com/swaggo/swag/cmd/swag@latest && swag init -g cmd/server/main.go -o ./docs`
 
 - Tidy modules:
   ```bash
   make tidy
   ```
-- Run with Docker:
-  ```bash
-  make up
-  ```
-
+  Or just run `go mod tidy`
 ---
 
 ## 🗄️ Data Inspection
 
 ### Postgres
 ```bash
-docker exec -it otp_db psql -U $POSTGRES_USER -d $POSTGRES_DB
+1. docker exec -it otp_db psql -U $POSTGRES_USER -d $POSTGRES_DB
 # inside psql
-\dt
-SELECT * FROM users;
+2. \dt # (optional) shows databases
+3. SELECT * FROM users; # shows users
 ```
 
 ### Redis
 ```bash
-docker exec -it otp_redis redis-cli
-keys *
-#for each row u can
-get $row
+1. docker exec -it otp_redis redis-cli
+2. keys * # shows all keys
+#for each key u can
+3. get $key #shows key data
 ```
 
 ---
