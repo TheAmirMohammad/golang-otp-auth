@@ -5,6 +5,10 @@ It can run in **two modes**:
 - **Postgres + Redis** (persistent, production-like)
 - **In-memory** (ephemeral, good for dev/testing)
 
+🗄️ Database Choice
+- Postgres → reliable and durable storage for permanent user data (persistence, search, pagination).
+- Redis → fast, in-memory store, ideal for temporary data such as OTPs and rate limiting.
+✅ Using both ensures a balance of durability and performance.
 ---
 
 The mode is controlled via `.env` toggles (`USE_DB`, `USE_REDIS`).
