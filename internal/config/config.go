@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -14,15 +15,15 @@ type Config struct {
 	Port      string
 	JWTSecret string
 
-	// Toggles (single .env friendly)
+	// Toggles
 	UseDB    bool
 	UseRedis bool
 
-	// Effective URLs used by the app (empty => in-memory)
+	// Effective URLs (empty => in-memory)
 	DatabaseURL string
 	RedisURL    string
 
-	// Base pieces (for building URLs if URLs not provided)
+	// Base pieces to build URLs
 	PGUser     string
 	PGPassword string
 	PGDB       string
@@ -32,10 +33,16 @@ type Config struct {
 	RedisHost string
 	RedisPort int
 	RedisDB   int
+
+	// ⚙️ Tunables
+	OTPTTL         time.Duration // default 2m
+	RateLimitMax   int           // default 3
+	RateLimitWindow time.Duration // default 10m
+	TokenTTL       time.Duration // default 24h
 }
 
 func Load() Config {
-	// Try to load .env; warn (don’t crash) if not found
+	// Load .env if present (warn if missing)
 	if err := godotenv.Load(); err != nil {
 		log.Printf("warning: .env not found or unreadable (%v) – continuing with process env", err)
 	}
@@ -59,6 +66,12 @@ func Load() Config {
 		RedisHost: env("REDIS_DNS", "redis"),
 		RedisPort: envInt("REDIS_PORT", 6379),
 		RedisDB:   envInt("REDIS_DB", 0),
+
+		// Tunables (durations accept Go format: 30s, 2m, 1h)
+		OTPTTL:          envDuration("OTP_TTL", 2*time.Minute),
+		RateLimitMax:    envInt("RATE_LIMIT_MAX", 3),
+		RateLimitWindow: envDuration("RATE_LIMIT_WINDOW", 10*time.Minute),
+		TokenTTL:        envDuration("TOKEN_TTL", 24*time.Hour),
 	}
 
 	// Toggles force in-memory by blanking URLs
@@ -69,7 +82,7 @@ func Load() Config {
 		cfg.RedisURL = ""
 	}
 
-	// Build URLs from pieces if toggled on but URL empty
+	// Build URLs from pieces if needed
 	if cfg.UseDB && cfg.DatabaseURL == "" {
 		cfg.DatabaseURL = fmt.Sprintf(
 			"postgres://%s:%s@%s:%d/%s?sslmode=disable",
@@ -108,6 +121,15 @@ func envBool(k string, d bool) bool {
 		case "0", "false", "f", "no", "n", "off":
 			return false
 		}
+	}
+	return d
+}
+func envDuration(k string, d time.Duration) time.Duration {
+	if v, ok := os.LookupEnv(k); ok && strings.TrimSpace(v) != "" {
+		if dur, err := time.ParseDuration(strings.TrimSpace(v)); err == nil {
+			return dur
+		}
+		log.Printf("warning: invalid duration for %s=%q (use e.g. 30s, 2m, 1h); using default %s", k, v, d)
 	}
 	return d
 }
